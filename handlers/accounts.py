@@ -58,6 +58,7 @@ async def is_admin(user_id: int) -> bool:
 
 @router.callback_query(F.data == "my_accounts")
 async def cb_my_accounts(call: CallbackQuery):
+    await call.answer()
     if not await is_admin(call.from_user.id):
         await call.answer("Нет доступа", show_alert=True)
         return
@@ -79,6 +80,7 @@ async def cb_my_accounts(call: CallbackQuery):
 
 @router.callback_query(F.data == "add_account")
 async def cb_add_account(call: CallbackQuery):
+    await call.answer()
     if not await is_admin(call.from_user.id):
         await call.answer("Нет доступа", show_alert=True)
         return
@@ -249,6 +251,7 @@ async def fsm_bulk_done(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("acc_"))
 async def cb_account_menu(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[1])
     acc = await get_account(acc_id)
     if not acc:
@@ -271,6 +274,7 @@ async def cb_account_menu(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("sessions_"))
 async def cb_sessions(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[1])
     acc = await get_account(acc_id)
     msg = await call.message.edit_text("⏳ Загружаю сессии...")
@@ -289,30 +293,22 @@ async def cb_sessions(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("kick_"))
 async def cb_kick_session(call: CallbackQuery):
+    await call.answer()
     _, acc_id_str, session_hash_str = call.data.split("_", 2)
     acc_id = int(acc_id_str)
     acc = await get_account(acc_id)
     try:
         await tg.kick_session(acc["session_file"], int(session_hash_str))
         await call.answer("✅ Сессия завершена!", show_alert=True)
-        # Обновить список
         sessions = await tg.get_sessions(acc["session_file"])
         await call.message.edit_reply_markup(reply_markup=kb_sessions(sessions, acc_id))
     except Exception as e:
         await call.answer(f"❌ {e}", show_alert=True)
 
 
-@router.callback_query(F.data.startswith("kickall_"))
-async def cb_kickall(call: CallbackQuery):
-    acc_id = int(call.data.split("_")[1])
-    await call.message.edit_text(
-        "⚡ Кикнуть все сессии кроме текущей?",
-        reply_markup=kb_confirm(f"kickall_confirm_{acc_id}", f"acc_{acc_id}"),
-    )
-
-
 @router.callback_query(F.data.startswith("kickall_confirm_"))
 async def cb_kickall_confirm(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[2])
     acc = await get_account(acc_id)
     try:
@@ -325,10 +321,21 @@ async def cb_kickall_confirm(call: CallbackQuery):
         await call.message.edit_text(f"❌ Ошибка: {e}", reply_markup=kb_back(f"acc_{acc_id}"))
 
 
+@router.callback_query(F.data.startswith("kickall_"))
+async def cb_kickall(call: CallbackQuery):
+    await call.answer()
+    acc_id = int(call.data.split("_")[1])
+    await call.message.edit_text(
+        "⚡ Кикнуть все сессии кроме текущей?",
+        reply_markup=kb_confirm(f"kickall_confirm_{acc_id}", f"acc_{acc_id}"),
+    )
+
+
 # ── ОЧИСТКА ЧАТОВ ─────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("clearchats_confirm_"))
 async def cb_clearchats_confirm(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[2])
     acc = await get_account(acc_id)
     msg = await call.message.edit_text("⏳ Очищаю чаты, это займёт время...")
@@ -341,6 +348,7 @@ async def cb_clearchats_confirm(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("clearchats_"))
 async def cb_clearchats(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[1])
     await call.message.edit_text(
         "🗑 <b>Фулл очистка чатов</b>\n\n⚠️ Будет удалена ВСЯ история. Необратимо!",
@@ -353,6 +361,7 @@ async def cb_clearchats(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("clearcontacts_confirm_"))
 async def cb_clearcontacts_confirm(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[2])
     acc = await get_account(acc_id)
     try:
@@ -364,6 +373,7 @@ async def cb_clearcontacts_confirm(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("clearcontacts_"))
 async def cb_clearcontacts(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[1])
     await call.message.edit_text(
         "👥 Удалить все контакты?",
@@ -429,6 +439,7 @@ async def fsm_broadcast_delay(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("reactions_"))
 async def cb_reactions(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[1])
     await call.message.edit_text(
         "❤️ <b>Массовые реакции</b>\n\nВыбери реакцию:",
@@ -494,7 +505,7 @@ async def fsm_react_delay(message: Message, state: FSMContext):
     )
 
 
-# ── В МАГАЗИН ─────────────────────────────────────────────────────────────────
+#── В МАГАЗИН ─────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("toshop_"))
 async def cb_toshop(call: CallbackQuery, state: FSMContext):
@@ -539,19 +550,21 @@ async def fsm_shop_desc(message: Message, state: FSMContext):
     )
 
 
-# ── УДАЛИТЬ АККАУНТ ───────────────────────────────────────────────────────────
+#── УДАЛИТЬ АККАУНТ ───────────────────────────────────────────────────────────
+
+@router.callback_query(F.data.startswith("delacc_confirm_"))
+async def cb_delete_confirm(call: CallbackQuery):
+    await call.answer()
+    acc_id = int(call.data.split("_")[2])
+    await delete_account(acc_id)
+    await call.message.edit_text("✅ Аккаунт удалён.", reply_markup=kb_back("my_accounts"))
+
 
 @router.callback_query(F.data.startswith("delacc_"))
 async def cb_delete_account(call: CallbackQuery):
+    await call.answer()
     acc_id = int(call.data.split("_")[1])
     await call.message.edit_text(
         "🗑 Удалить аккаунт из базы?",
         reply_markup=kb_confirm(f"delacc_confirm_{acc_id}", f"acc_{acc_id}"),
     )
-
-
-@router.callback_query(F.data.startswith("delacc_confirm_"))
-async def cb_delete_confirm(call: CallbackQuery):
-    acc_id = int(call.data.split("_")[2])
-    await delete_account(acc_id)
-    await call.message.edit_text("✅ Аккаунт удалён.", reply_markup=kb_back("my_accounts"))
