@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>Userbot Manager</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  /* ── RESET & BASE ──────────────────────────────────────────── */
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:        #0e0e16;
+    --surface:   #181826;
+    --card:      #1f1f31;
+    --border:    #2a2a40;
+    --accent1:   #5b6ef5;
+    --accent2:   #8b5cf6;
+    --gradient:  linear-gradient(135deg,var(--accent1),var(--accent2));
+    --text:      #e4e4f0;
+    --muted:     #7878a0;
+    --success:   #22c55e;
+    --danger:    #ef4444;
+    --warn:      #f59e0b;
+    --radius:    14px;
+    --transition:.22s ease;
+  }
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+
+  /* ── SCROLLBAR ─────────────────────────────────────────────── */
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:9px}
+
+  /* ── LAYOUT ────────────────────────────────────────────────── */
+  #app{display:flex;flex-direction:column;height:100%}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px 10px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  header h1{font-size:17px;font-weight:700;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  header .badge{margin-left:auto;font-size:11px;padding:3px 8px;border-radius:20px;background:var(--gradient);color:#fff;font-weight:600;-webkit-text-fill-color:#fff}
+
+  #content{flex:1;overflow-y:auto;padding:14px 12px 80px}
+
+  /* ── NAV BAR ───────────────────────────────────────────────── */
+  nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100}
+  nav button{flex:1;border:none;background:none;color:var(--muted);padding:10px 4px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:600;transition:color var(--transition)}
+  nav button svg{width:22px;height:22px}
+  nav button.active{color:var(--accent1)}
+  nav button.active svg path,nav button.active svg rect,nav button.active svg circle{stroke:var(--accent1)}
+
+  /* ── TABS ──────────────────────────────────────────────────── */
+  .tab{display:none}.tab.active{display:block}
+
+  /* ── SECTION TITLE ─────────────────────────────────────────── */
+  .section-title{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px;padding-left:2px}
+
+  /* ── CARDS ─────────────────────────────────────────────────── */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px}
+  .card-header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .card-title{font-weight:700;font-size:15px}
+  .card-sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .card-badge{margin-left:auto;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700}
+  .badge-active{background:#22c55e22;color:var(--success)}
+  .badge-shop{background:#f59e0b22;color:var(--warn)}
+  .badge-sold{background:#ef444422;color:var(--danger)}
+  .badge-banned{background:#6b728022;color:var(--muted)}
+
+  /* ── BUTTONS ───────────────────────────────────────────────── */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity var(--transition),transform .1s}
+  .btn:active{transform:scale(.97);opacity:.85}
+  .btn-primary{background:var(--gradient);color:#fff;width:100%}
+  .btn-secondary{background:var(--card);border:1px solid var(--border);color:var(--text)}
+  .btn-danger{background:#ef444422;color:var(--danger);border:1px solid #ef444440}
+  .btn-success{background:#22c55e22;color:var(--success);border:1px solid #22c55e40}
+  .btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .btn-full{margin-top:8px;width:100%}
+
+  /* ── FORM INPUTS ───────────────────────────────────────────── */
+  .form-group{margin-bottom:12px}
+  .form-label{font-size:13px;color:var(--muted);margin-bottom:5px;display:block}
+  .form-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:15px;outline:none;transition:border-color var(--transition)}
+  .form-input:focus{border-color:var(--accent1)}
+  textarea.form-input{resize:vertical;min-height:80px}
+
+  /* ── STAT GRID ─────────────────────────────────────────────── */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+  .stat-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center}
+  .stat-num{font-size:26px;font-weight:800;background:var(--gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .stat-lbl{font-size:12px;color:var(--muted);margin-top:2px}
+
+  /* ── MODAL ─────────────────────────────────────────────────── */
+  .modal-overlay{position:fixed;inset:0;background:#00000088;z-index:200;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity var(--transition)}
+  .modal-overlay.open{opacity:1;pointer-events:all}
+  .modal{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:85vh;overflow-y:auto;transform:translateY(30px);transition:transform var(--transition)}
+  .modal-overlay.open .modal{transform:translateY(0)}
+  .modal-title{font-size:17px;font-weight:700;margin-bottom:16px}
+  .modal-close{float:right;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+
+  /* ── EMOJI ROW ─────────────────────────────────────────────── */
+  .emoji-row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+  .emoji-btn{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:20px;cursor:pointer;transition:border-color var(--transition)}
+  .emoji-btn.selected{border-color:var(--accent1);background:#5b6ef520}
+
+  /* ── LIST ITEMS ────────────────────────────────────────────── */
+  .list-item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)}
+  .list-item:last-child{border-bottom:none}
+  .list-avatar{width:38px;height:38px;border-radius:50%;background:var(--gradient);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+  .list-info{flex:1;min-width:0}
+  .list-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .list-detail{font-size:12px;color:var(--muted)}
+
+  /* ── TOAST ─────────────────────────────────────────────────── */
+  #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 20px;font-size:14px;font-weight:600;opacity:0;transition:all .3s;z-index:300;white-space:nowrap;pointer-events:none}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ── SPINNER ───────────────────────────────────────────────── */
+  .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent1);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── EMPTY STATE ───────────────────────────────────────────── */
+  .empty{text-align:center;padding:48px 20px;color:var(--muted)}
+  .empty svg{opacity:.3;margin-bottom:12px}
+  .empty p{font-size:15px}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="8" fill="url(#g1)"/>
+      <path d="M8 14h12M14 8v12" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+      <defs><linearGradient id="g1" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#5b6ef5"/><stop offset="1" stop-color="#8b5cf6"/>
+      </linearGradient></defs>
+    </svg>
+    <h1>Userbot Manager</h1>
+    <span class="badge" id="role-badge">user</span>
+  </header>
+
+  <!-- CONTENT TABS -->
+  <div id="content">
+
+    <!-- ── TAB: ГЛАВНАЯ ── -->
+    <div class="tab active" id="tab-home">
+      <div class="section-title">Обзор</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-num" id="stat-accounts">—</div><div class="stat-lbl">Аккаунтов</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-shop">—</div><div class="stat-lbl">В магазине</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-users">—</div><div class="stat-lbl">Пользователей</div></div>
+        <div class="stat-box"><div class="stat-num" id="stat-sales">—</div><div class="stat-lbl">Продаж</div></div>
+      </div>
+
+      <div class="section-title">Быстрые действия</div>
+      <div class="card">
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="switchTab('accounts')">📱 Аккаунты</button>
+          <button class="btn btn-primary" onclick="switchTab('shop')">🛒 Магазин</button>
+        </div>
+        <div class="btn-row" id="admin-quick" style="display:none">
+          <button class="btn btn-secondary" onclick="switchTab('broadcast')">📢 Рассылка</button>
+          <button class="btn btn-secondary" onclick="switchTab('reactions')">❤️ Реакции</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TAB: АККАУНТЫ ── -->
+    <div class="tab" id="tab-accounts">
+      <div class="section-title">Мои аккаунты</div>
+      <div id="accounts-list"><div class="spinner" style="margin-top:40px"></div></div>
+    </div>
+
+    <!-- ── TAB: МАГАЗИН ── -->
+    <div class="tab" id="tab-shop">
+      <div class="section-title">Доступные аккаунты</div>
+      <div id="shop-list"><div class="spinner" style="margin-top:40px"></div></div>
+    </div>
+
+    <!-- ── TAB: РАССЫЛКА ── -->
+    <div class="tab" id="tab-broadcast">
+      <div class="section-title">Массовая рассылка</div>
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Аккаунт для рассылки</label>
+          <select class="form-input" id="bc-account-select">
+            <option value="">— Выбери аккаунт —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Получатели (через запятую)</label>
+          <textarea class="form-input" id="bc-targets" placeholder="@user1, @user2, +79991234567"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Текст сообщения</label>
+          <textarea class="form-input" id="bc-message" placeholder="Привет! Это тестовое сообщение." style="min-height:120px"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Задержка (сек)</label>
+          <input class="form-input" type="number" id="bc-delay" value="1.5" step="0.5" min="0.5"/>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="startBroadcast()">📢 Запустить рассылку</button>
+      </div>
+      <div id="bc-progress" style="display:none" class="card">
+        <div class="card-title" style="margin-bottom:8px">Прогресс</div>
+        <div id="bc-progress-text" style="color:var(--muted)">Ожидание...</div>
+      </div>
+    </div>
+
+    <!-- ── TAB: РЕАКЦИИ ── -->
+    <div class="tab" id="tab-reactions">
+      <div class="section-title">Массовые реакции</div>
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Аккаунт</label>
+          <select class="form-input" id="rc-account-select">
+            <option value="">— Выбери аккаунт —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Цель (@username или ID)</label>
+          <input class="form-input" id="rc-target" placeholder="@channel"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Реакция</label>
+          <div class="emoji-row" id="emoji-picker"></div>
+          <input type="hidden" id="rc-emoji" value="👍"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Количество постов</label>
+          <input class="form-input" type="number" id="rc-count" value="20" min="1"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Задержка (сек)</label>
+          <input class="form-input" type="number" id="rc-delay" value="1.5" step="0.5" min="0.5"/>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="startReactions()">⚡ Запустить реакции</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- NAV BAR -->
+  <nav>
+    <button class="active" onclick="switchTab('home')" id="nav-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>Главная
+    </button>
+    <button onclick="switchTab('accounts')" id="nav-accounts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/>
+        <line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="12" y2="15"/>
+      </svg>Аккаунты
+    </button>
+    <button onclick="switchTab('shop')" id="nav-shop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+      </svg>Магазин
+    </button>
+    <button onclick="switchTab('broadcast')" id="nav-broadcast" class="admin-only" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 5.49 5.49l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/>
+      </svg>Рассылка
+    </button>
+    <button onclick="switchTab('reactions')" id="nav-reactions" class="admin-only" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>Реакции
+    </button>
+  </nav>
+</div>
+
+<!-- MODAL: ДЕТАЛИ АККАУНТА -->
+<div class="modal-overlay" id="modal-account">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-account')">✕</button>
+    <div class="modal-title" id="modal-acc-title">Аккаунт</div>
+    <div id="modal-acc-body"></div>
+  </div>
+</div>
+
+<!-- MODAL: ДЕТАЛИ ТОВАРА В МАГАЗИНЕ -->
+<div class="modal-overlay" id="modal-shop">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-shop')">✕</button>
+    <div class="modal-title">🛒 Купить аккаунт</div>
+    <div id="modal-shop-body"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── INIT ──────────────────────────────────────────────────────
+const tgApp = window.Telegram?.WebApp;
+if (tgApp) {
+  tgApp.ready();
+  tgApp.expand();
+}
+
+let currentUser = { role: 'user' };
+let accountsData = [];
+let shopData = [];
+
+// ── TAB SWITCH ────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name)?.classList.add('active');
+  document.getElementById('nav-' + name)?.classList.add('active');
+
+  if (name === 'accounts') loadAccounts();
+  if (name === 'shop')     loadShop();
+}
+
+// ── TOAST ────────────────────────────────────────────────────
+function showToast(msg, color = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.color = color || 'var(--text)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── MODAL ────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+
+// ── ROLE CHECK ────────────────────────────────────────────────
+function applyRole(role) {
+  currentUser.role = role;
+  document.getElementById('role-badge').textContent =
+    role === 'superadmin' ? '👑 Суперадмин' :
+    role === 'admin'      ? '🛡 Админ'      : '👤 Юзер';
+
+  const isAdmin = role !== 'user';
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
+  if (isAdmin) document.getElementById('admin-quick').style.display = '';
+}
+
+// ── FETCH DATA (заглушка — заменить на реальный API) ──────────
+// В реальном проекте делать fetch к бэкенду или получать данные
+// от бота через Telegram.WebApp.sendData / initData
+
+function loadStats() {
+  // Демо-данные; подключи свой бэкенд-endpoint
+  document.getElementById('stat-accounts').textContent = accountsData.length || '0';
+  document.getElementById('stat-shop').textContent     = shopData.filter(s => s.status === 'available').length || '0';
+  document.getElementById('stat-users').textContent    = '—';
+  document.getElementById('stat-sales').textContent    = '—';
+}
+
+function loadAccounts() {
+  const el = document.getElementById('accounts-list');
+  if (!accountsData.length) {
+    el.innerHTML = `<div class="empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="5" y="2" width="14" height="20" rx="2"/>
+      </svg>
+      <p>Нет аккаунтов.<br>Добавь через бота.</p></div>`;
+    return;
+  }
+  el.innerHTML = accountsData.map(acc => `
+    <div class="card" style="cursor:pointer" onclick="showAccountModal(${acc.id})">
+      <div class="card-header">
+        <div class="list-avatar">📱</div>
+        <div>
+          <div class="card-title">${acc.phone || 'Без номера'}</div>
+          <div class="card-sub">${acc.session_file}</div>
+        </div>
+        <span class="card-badge badge-${acc.status}">${statusLabel(acc.status)}</span>
+      </div>
+    </div>`).join('');
+}
+
+function loadShop() {
+  const el = document.getElementById('shop-list');
+  const available = shopData.filter(s => s.status === 'available');
+  if (!available.length) {
+    el.innerHTML = `<div class="empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+      </svg>
+      <p>Магазин пуст.<br>Аккаунтов нет.</p></div>`;
+    return;
+  }
+  el.innerHTML = available.map(item => `
+    <div class="card" style="cursor:pointer" onclick="showShopModal(${item.id})">
+      <div class="card-header">
+        <div class="list-avatar">📱</div>
+        <div>
+          <div class="card-title">${item.phone || 'Аккаунт'}</div>
+          <div class="card-sub">${item.description || 'Telegram аккаунт'}</div>
+        </div>
+        <span class="card-badge" style="background:#5b6ef522;color:var(--accent1)">${item.price} ${item.currency}</span>
+      </div>
+    </div>`).join('');
+}
+
+function statusLabel(s) {
+  return {active:'🟢 Активен',shop:'🛒 В продаже',sold:'🔴 Продан',banned:'⛔ Забанен'}[s] || s;
+}
+
+// ── ACCOUNT MODAL ─────────────────────────────────────────────
+function showAccountModal(id) {
+  const acc = accountsData.find(a => a.id === id);
+  if (!acc) return;
+  document.getElementById('modal-acc-title').textContent = acc.phone || 'Аккаунт';
+  document.getElementById('modal-acc-body').innerHTML = `
+    <div class="list-item">
+      <span style="color:var(--muted)">Номер</span>
+      <span style="margin-left:auto;font-weight:600">${acc.phone || '—'}</span>
+    </div>
+    <div class="list-item">
+      <span style="color:var(--muted)">Статус</span>
+      <span class="card-badge badge-${acc.status}" style="margin-left:auto">${statusLabel(acc.status)}</span>
+    </div>
+    <div class="list-item">
+      <span style="color:var(--muted)">Файл</span>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted)">${acc.session_file}</span>
+    </div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn btn-secondary" onclick="tgSend('acc_${id}')">📋 Управление</button>
+      <button class="btn btn-secondary" onclick="tgSend('sessions_${id}')">🖥 Сессии</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="tgSend('broadcast_${id}')">📢 Рассылка</button>
+      <button class="btn btn-secondary" onclick="tgSend('reactions_${id}')">❤️ Реакции</button>
+    </div>
+    <button class="btn btn-danger btn-full" style="margin-top:8px" onclick="tgSend('clearchats_${id}')">🗑 Очистить чаты</button>
+  `;
+  openModal('modal-account');
+}
+
+// ── SHOP MODAL ────────────────────────────────────────────────
+function showShopModal(id) {
+  const item = shopData.find(s => s.id === id);
+  if (!item) return;
+  document.getElementById('modal-shop-body').innerHTML = `
+    <div class="list-item">
+      <span style="color:var(--muted)">Номер</span>
+      <span style="margin-left:auto;font-weight:600">${item.phone || '—'}</span>
+    </div>
+    <div class="list-item">
+      <span style="color:var(--muted)">Описание</span>
+      <span style="margin-left:auto;max-width:60%;text-align:right;font-size:13px">${item.description || '—'}</span>
+    </div>
+    <div class="list-item">
+      <span style="color:var(--muted)">Цена</span>
+      <span style="margin-left:auto;font-weight:700;color:var(--accent1)">${item.price} ${item.currency}</span>
+    </div>
+    <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="tgSend('buy_${id}')">
+      💳 Купить через @CryptoBot
+    </button>
+  `;
+  openModal('modal-shop');
+}
+
+// ── SEND TO BOT ───────────────────────────────────────────────
+// Шлём callback_data боту через Telegram.WebApp.sendData
+function tgSend(data) {
+  closeModal('modal-account');
+  closeModal('modal-shop');
+  showToast('⚡ Переключаюсь в бот...');
+  if (tgApp) {
+    tgApp.sendData(data);
+  } else {
+    showToast('Открой через Telegram бот', 'var(--warn)');
+  }
+}
+
+// ── EMOJI PICKER ──────────────────────────────────────────────
+const EMOJIS = ['👍','👎','❤️','🔥','🎉','😮','😢','💯','⚡','🏆'];
+function buildEmojiPicker() {
+  const cont = document.getElementById('emoji-picker');
+  cont.innerHTML = EMOJIS.map(e => `
+    <button class="emoji-btn ${e==='👍'?'selected':''}" onclick="pickEmoji(this,'${e}')">${e}</button>
+  `).join('');
+}
+function pickEmoji(el, emoji) {
+  document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('rc-emoji').value = emoji;
+}
+
+// ── BROADCAST ─────────────────────────────────────────────────
+function startBroadcast() {
+  const accId   = document.getElementById('bc-account-select').value;
+  const targets = document.getElementById('bc-targets').value.trim();
+  const text    = document.getElementById('bc-message').value.trim();
+  const delay   = document.getElementById('bc-delay').value;
+
+  if (!accId)   { showToast('Выбери аккаунт', 'var(--danger)'); return; }
+  if (!targets) { showToast('Укажи получателей', 'var(--danger)'); return; }
+  if (!text)    { showToast('Введи текст', 'var(--danger)'); return; }
+
+  // В Mini App только инициируем — реальная отправка через бот
+  showToast('📢 Рассылка запущена через бот!', 'var(--success)');
+  if (tgApp) tgApp.sendData(`miniapp_broadcast:${accId}:${delay}:${targets.length}:${encodeURIComponent(text)}`);
+}
+
+// ── REACTIONS ─────────────────────────────────────────────────
+function startReactions() {
+  const accId  = document.getElementById('rc-account-select').value;
+  const target = document.getElementById('rc-target').value.trim();
+  const emoji  = document.getElementById('rc-emoji').value;
+  const count  = document.getElementById('rc-count').value;
+  const delay  = document.getElementById('rc-delay').value;
+
+  if (!accId)  { showToast('Выбери аккаунт', 'var(--danger)'); return; }
+  if (!target) { showToast('Укажи цель', 'var(--danger)'); return; }
+
+  showToast('⚡ Реакции запущены через бот!', 'var(--success)');
+  if (tgApp) tgApp.sendData(`miniapp_react:${accId}:${target}:${emoji}:${count}:${delay}`);
+}
+
+// ── POPULATE ACCOUNT SELECTS ──────────────────────────────────
+function populateAccountSelects() {
+  ['bc-account-select','rc-account-select'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '<option value="">— Выбери аккаунт —</option>' +
+      accountsData
+        .filter(a => a.status === 'active')
+        .map(a => `<option value="${a.id}">${a.phone || a.session_file}</option>`)
+        .join('');
+  });
+}
+
+// ── PARSE INIT DATA ───────────────────────────────────────────
+// Telegram передаёт initData; в реальном проекте
+// нужен бэкенд для валидации и возврата данных пользователя.
+// Здесь демо-режим с пустыми данными.
+function init() {
+  buildEmojiPicker();
+
+  // Определить роль из initData или параметров URL
+  const params = new URLSearchParams(window.location.search);
+  const role   = params.get('role') || 'user';
+  applyRole(role);
+
+  // Для демо — можно инициализировать из бота через query param ?data=JSON
+  const raw = params.get('data');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(raw));
+      accountsData = parsed.accounts || [];
+      shopData     = parsed.shop     || [];
+      applyRole(parsed.role || 'user');
+    } catch(e) {}
+  }
+
+  loadStats();
+  loadAccounts();
+  loadShop();
+  populateAccountSelects();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// Закрыть модал при клике на оверлей
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
